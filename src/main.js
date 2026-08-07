@@ -1,4 +1,3 @@
-//У файлі main.js напиши всю логіку роботи додатка. Виклики нотифікацій iziToast, усі перевірки на довжину масиву в отриманій відповіді робимо саме в цьому файлі. Імпортуй в нього функції із файлів pixabay-api.js та render-functions.js та викликай їх у відповідний момент.
 
 import iziToast from "izitoast";
 import "izitoast/dist/css/iziToast.min.css";
@@ -27,9 +26,9 @@ let totalPages = 0;
 form.addEventListener("submit", onSubmit);
 loadMore.addEventListener("click", onLoadMore);
 
-function onSubmit(event) {
+async function onSubmit(event) {
     event.preventDefault();
-    console.log("Submit works");
+
     query = event.currentTarget.elements["search-text"].value.trim();
     page = 1;
     if (!query) {
@@ -43,41 +42,46 @@ function onSubmit(event) {
     hideLoadMoreButton();
     showLoader();
 
-    getImagesByQuery(query, page)
-        .then(data => {
-            if (data.hits.length === 0) {
-                iziToast.error({
-                    message:
-                        "Sorry, there are no images matching your search query. Please try again!",
-                });
-                return;
-            }
-            totalPages = Math.ceil(data.totalHits / 15);
-            createGallery(data.hits);
-            if (page < totalPages) {
-                showLoadMoreButton();
-            } else {
-                hideLoadMoreButton();
-            }
-        })
-        .catch(error => {
-            console.error(error);
+    try {
+        const data = await getImagesByQuery(query, page);
 
+        if (data.hits.length === 0) {
             iziToast.error({
-                message: "Something went wrong!",
+                message:
+                    "Sorry, there are no images matching your search query. Please try again!",
             });
-        })
-        .finally(() => {
-            hideLoader();
+            return;
+        }
+
+        totalPages = Math.ceil(data.totalHits / 15);
+        createGallery(data.hits);
+
+        if (page < totalPages) {
+            showLoadMoreButton();
+        } else {
+            hideLoadMoreButton();
+        }
+
+    } catch (error) {
+        console.error(error);
+        iziToast.error({
+            message: "Something went wrong!",
         });
+    } finally {
+        hideLoader();
+    }
 }
+
 async function onLoadMore() {
     page += 1;
+    hideLoadMoreButton();
+    showLoader();
     loadMore.disabled = true;
 
     try {
         const data = await getImagesByQuery(query, page);
         createGallery(data.hits);
+
         if (page < totalPages) {
             showLoadMoreButton();
         } else {
@@ -86,6 +90,7 @@ async function onLoadMore() {
                 message: "We're sorry, but you've reached the end of search results.",
             });
         }
+
         const card = document.querySelector(".photo-card");
         const cardHeight = card.getBoundingClientRect().height;
 
@@ -100,5 +105,6 @@ async function onLoadMore() {
         });
     } finally {
         loadMore.disabled = false;
+        hideLoader();
     }
 }
